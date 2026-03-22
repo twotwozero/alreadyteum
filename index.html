@@ -314,10 +314,13 @@ function parseCSV(text) {
     const date   = cols[0];
     const room   = cols[1]?.toLowerCase();
     const source = cols[2]?.toLowerCase() || '';
-    const id     = cols[3] || '';
+    const id     = cols[3] || `${source}-${date}-${room}`;
     if (!date || !room) continue;
     if (!bookings.has(date)) bookings.set(date, new Map());
-    if (!bookings.get(date).has(room)) bookings.get(date).set(room, { sources: new Set(), id });
+    // 이미 같은 날짜/룸이 있으면 sources만 추가, id는 첫번째 것 유지
+    if (!bookings.get(date).has(room)) {
+      bookings.get(date).set(room, { sources: new Set(), id });
+    }
     bookings.get(date).get(room).sources.add(source);
   }
 }
