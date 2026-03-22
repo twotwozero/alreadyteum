@@ -434,6 +434,10 @@ function showDetail(dateStr, dateObj) {
   const content = document.getElementById('panelContent');
   content.innerHTML = '';
 
+  // 예약 불가 로직
+  const fullBooked = dayBookings.has('full');
+  const anyRoomBooked = dayBookings.has('a') || dayBookings.has('b') || dayBookings.has('c');
+
   ROOM_ORDER.forEach(room => {
     const row = document.createElement('div');
     row.className = 'panel-row';
@@ -452,6 +456,7 @@ function showDetail(dateStr, dateObj) {
     const status = document.createElement('div');
     status.className = 'panel-status';
 
+    // 실제 예약됨
     if (dayBookings.has(room)) {
       status.textContent = '예약됨';
       status.style.color = ROOMS[room].color;
@@ -464,7 +469,21 @@ function showDetail(dateStr, dateObj) {
       ch.textContent = lbls.join(' · ');
       right.appendChild(status);
       right.appendChild(ch);
-    } else {
+    }
+    // 독채 예약 시 A,B,C 예약불가
+    else if (room !== 'full' && fullBooked) {
+      status.textContent = '예약불가';
+      status.style.color = '#e86b6b';
+      right.appendChild(status);
+    }
+    // A,B,C 중 하나라도 예약 시 독채 예약불가
+    else if (room === 'full' && anyRoomBooked) {
+      status.textContent = '예약불가';
+      status.style.color = '#e86b6b';
+      right.appendChild(status);
+    }
+    // 예약가능
+    else {
       status.textContent = '예약가능';
       status.style.color = 'var(--text-muted)';
       right.appendChild(status);
