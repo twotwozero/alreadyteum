@@ -314,10 +314,11 @@ function parseCSV(text) {
     const date   = cols[0];
     const room   = cols[1]?.toLowerCase();
     const source = cols[2]?.toLowerCase() || '';
+    const id     = cols[3] || '';
     if (!date || !room) continue;
     if (!bookings.has(date)) bookings.set(date, new Map());
-    if (!bookings.get(date).has(room)) bookings.get(date).set(room, new Set());
-    bookings.get(date).get(room).add(source);
+    if (!bookings.get(date).has(room)) bookings.get(date).set(room, { sources: new Set(), id });
+    bookings.get(date).get(room).sources.add(source);
   }
 }
 
@@ -391,8 +392,11 @@ function renderCalendar() {
         if (room && bookings.get(ds)?.has(room)) {
           const prev = fmt(dayOffset(cell.date, -1));
           const next = fmt(dayOffset(cell.date, +1));
-          const prevB = bookings.get(prev)?.has(room);
-          const nextB = bookings.get(next)?.has(room);
+          const currId = bookings.get(ds)?.get(room)?.id || '';
+          const prevId = bookings.get(prev)?.get(room)?.id || '';
+          const nextId = bookings.get(next)?.get(room)?.id || '';
+          const prevB = bookings.get(prev)?.has(room) && prevId === currId;
+          const nextB = bookings.get(next)?.has(room) && nextId === currId;
           const isStart = !prevB || colIdx === 0;
           const isEnd   = !nextB || colIdx === 6;
 
@@ -460,7 +464,7 @@ function showDetail(dateStr, dateObj) {
     if (dayBookings.has(room)) {
       status.textContent = '예약됨';
       status.style.color = ROOMS[room].color;
-      const srcs = dayBookings.get(room);
+      const srcs = dayBookings.get(room)?.sources || new Set();
       const ch = document.createElement('div');
       ch.className = 'panel-channel';
       const lbls = [];
