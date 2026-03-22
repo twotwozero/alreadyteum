@@ -314,10 +314,9 @@ function parseCSV(text) {
     const date   = cols[0];
     const room   = cols[1]?.toLowerCase();
     const source = cols[2]?.toLowerCase() || '';
-    const id     = cols[3] || `${source}-${date}-${room}`;
+    const id     = cols[3] || null;
     if (!date || !room) continue;
     if (!bookings.has(date)) bookings.set(date, new Map());
-    // 이미 같은 날짜/룸이 있으면 sources만 추가, id는 첫번째 것 유지
     if (!bookings.get(date).has(room)) {
       bookings.get(date).set(room, { sources: new Set(), id });
     }
@@ -395,11 +394,14 @@ function renderCalendar() {
         if (room && bookings.get(ds)?.has(room)) {
           const prev = fmt(dayOffset(cell.date, -1));
           const next = fmt(dayOffset(cell.date, +1));
-          const currId = bookings.get(ds)?.get(room)?.id || '';
-          const prevId = bookings.get(prev)?.get(room)?.id || '';
-          const nextId = bookings.get(next)?.get(room)?.id || '';
-          const prevB = bookings.get(prev)?.has(room) && prevId === currId;
-          const nextB = bookings.get(next)?.has(room) && nextId === currId;
+          const currId = bookings.get(ds)?.get(room)?.id || null;
+          const prevId = bookings.get(prev)?.get(room)?.id || null;
+          const nextId = bookings.get(next)?.get(room)?.id || null;
+          // id가 둘 다 있으면 id로 비교, 없으면 날짜 연속성으로만 판단
+          const prevB = bookings.get(prev)?.has(room) &&
+            (currId && prevId ? currId === prevId : true);
+          const nextB = bookings.get(next)?.has(room) &&
+            (currId && nextId ? currId === nextId : true);
           const isStart = !prevB || colIdx === 0;
           const isEnd   = !nextB || colIdx === 6;
 
@@ -428,6 +430,45 @@ function renderCalendar() {
     weekEl.appendChild(barsLayer);
     grid.appendChild(weekEl);
   }
+}
+
+function getBookingRange(dateStr, room) {
+  const id = bookings.get(dateStr)?.get(room)?.id || null;
+  let start = dateStr;
+  let end   = dateStr;
+
+  // 앞으로 탐색
+  let d = new Date(dateStr);
+  while (true) {
+    d.setDate(d.getDate() - 1);
+    const ds = fmt(d);
+    const entry = bookings.get(ds)?.get(room);
+    if (!entry) break;
+    if (id && entry.id !== id) break;
+    start = ds;
+  }
+
+  // 뒤로 탐색
+  d = new Date(dateStr);
+  while (true) {
+    d.setDate(d.getDate() + 1);
+    const ds = fmt(d);
+    const entry = bookings.get(ds)?.get(room);
+    if (!entry) break;
+    if (id && entry.id !== id) break;
+    end = ds;
+  }
+
+  // 체크아웃은 마지막 예약일 다음날
+  const endDate = new Date(end);
+  endDate.setDate(endDate.getDate() + 1);
+
+  return { start, end: fmt(endDate) };
+}
+
+function formatDateKo(dateStr) {
+  const d = new Date(dateStr);
+  return `${d.getMonth()+1}월 ${d.getDate()}일`;
 }
 
 function showDetail(dateStr, dateObj) {
@@ -468,6 +509,15 @@ function showDetail(dateStr, dateObj) {
       status.textContent = '예약됨';
       status.style.color = ROOMS[room].color;
       const srcs = dayBookings.get(room)?.sources || new Set();
+
+      // 예약 날짜 범위
+      const range = getBookingRange(dateStr, room);
+      const rangeEl = document.createElement('div');
+      rangeEl.style.fontSize = '11px';
+      rangeEl.style.color = ROOMS[room].color;
+      rangeEl.style.opacity = '0.8';
+      rangeEl.textContent = `${formatDateKo(range.start)} - ${formatDateKo(range.end)}`;
+
       const ch = document.createElement('div');
       ch.className = 'panel-channel';
       const lbls = [];
@@ -475,6 +525,7 @@ function showDetail(dateStr, dateObj) {
       if (srcs.has('naver'))  lbls.push('네이버');
       ch.textContent = lbls.join(' · ');
       right.appendChild(status);
+      right.appendChild(rangeEl);
       right.appendChild(ch);
     }
     // 독채 예약 시 A,B,C 예약불가
